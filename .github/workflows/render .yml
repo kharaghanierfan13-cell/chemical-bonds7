@@ -1,0 +1,58 @@
+name: Render Chemical Bonds Documentary
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate full project (all files, scenes, animations)
+        run: node generator.mjs
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate sound effects
+        run: npm run sfx
+
+      - name: Render 1080p MP4 (H.264)
+        run: npm run render
+
+      - name: Create Release with 1080p (direct download link)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "render-${{ github.run_number }}" \
+            out/chemical-bonds-1080p.mp4 \
+            --title "Chemical Bonds — Render ${{ github.run_number }}" \
+            --notes "CHEMICAL BONDS documentary — MP4 H.264 — 30fps — 2:34 — 1080p + 4K" \
+            --latest
+
+      - name: Render 4K MP4 (H.264)
+        run: npm run render4k
+
+      - name: Add 4K to the Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "render-${{ github.run_number }}" out/chemical-bonds-4k.mp4
+
+      - name: Upload artifacts (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: chemical-bonds-videos
+          path: out/*.mp4
